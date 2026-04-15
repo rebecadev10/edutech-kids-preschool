@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Alfabeto Mágico | Arrastra la letra</title>
+    <style>
+        :root {
+            --primary: #ff6b6b;
+            --secondary: #4ecdc4;
+            --accent: #ffe66d;
+            --bg-dark: #2f274c;
+            --text: #2d3436;
+        }
+
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle, #44336d 0%, #2f274c 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .game-container {
+            background: #ffffff;
+            border-radius: 40px;
+            padding: 25px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), inset 0 -10px 0 #e0e0e0;
+            width: 100%;
+            max-width: 900px;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .header-ui {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: white;
+            font-weight: 900;
+            text-transform: uppercase;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.1);
+        }
+
+        .lvl-badge { background: var(--primary); }
+        .score-badge { background: var(--secondary); }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 30px;
+            background: #fdfaf0;
+            cursor: grab;
+            width: 100%;
+            height: auto;
+            border: 4px solid #f0e6d2;
+        }
+
+        canvas:active { cursor: grabbing; }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            border: none;
+            padding: 15px;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: translateY(4px); }
+
+        .btn-reset { background: #ff9f43; box-shadow: 0 6px 0 #cf6a00; }
+        .btn-next { background: #1dd1a1; box-shadow: 0 6px 0 #10ac84; }
+
+        button:disabled {
+            background: #cbd5e0;
+            box-shadow: 0 6px 0 #a0aec0;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .hint-bar {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f1f2f6;
+            border-radius: 15px;
+            text-align: center;
+            color: #576574;
+            font-size: 0.95rem;
+            border-left: 5px solid var(--secondary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header-ui">
+        <div class="badge lvl-badge" id="levelName">Nivel 1</div>
+        <div class="badge score-badge" id="scoreBox">⭐ 0 / 1</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hint-bar" id="messageBox">
+        ¡Arrastra la letra inicial al cuadro gris! 🎈
+    </div>
+
+    <div class="controls">
+        <button id="resetBtn" class="btn-reset">🔄 REINTENTAR</button>
+        <button id="nextBtn" class="btn-next" disabled>SIGUIENTE ➡️</button>
+         <button><a href="./index.html">Volver al Inicio</a></button>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const levelNameSpan = document.getElementById('levelName');
+        const scoreBoxSpan = document.getElementById('scoreBox');
+        const messageDiv = document.getElementById('messageBox');
+        const resetBtn = document.getElementById('resetBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        let W = 1000, H = 600;
+        let currentLevel = 1;
+        const TOTAL_LEVELS = 40;
+        let dragging = false, dragIndex = -1, dragOffsetX = 0, dragOffsetY = 0;
+        let score = 0;
+        let levelComplete = false;
+        
+        const LEVELS = [
+            { emoji: "🐶", word: "PERRO", correctLetter: "P", color: "#FF6B6B" },
+            { emoji: "🐱", word: "GATO", correctLetter: "G", color: "#4ECDC4" },
+            { emoji: "🐭", word: "RATÓN", correctLetter: "R", color: "#A8E6CF" },
+            { emoji: "🐸", word: "RANA", correctLetter: "R", color: "#FFD93D" },
+            { emoji: "🐮", word: "VACA", correctLetter: "V", color: "#6C5CE7" },
+            { emoji: "🐷", word: "CERDO", correctLetter: "C", color: "#FAB1A0" },
+            { emoji: "🐒", word: "MONO", correctLetter: "M", color: "#FD79A8" },
+            { emoji: "🦁", word: "LEÓN", correctLetter: "L", color: "#F9CA24" },
+            { emoji: "🐧", word: "PINGÜINO", correctLetter: "P", color: "#74B9FF" },
+            { emoji: "🐳", word: "BALLENA", correctLetter: "B", color: "#A29BFE" },
+            { emoji: "🍎", word: "MANZANA", correctLetter: "M", color: "#ff4d4d" },
+    { emoji: "🦒", word: "JIRAFA", correctLetter: "J", color: "#ffa502" },
+    { emoji: "🐢", word: "TORTUGA", correctLetter: "T", color: "#2ed573" },
+    { emoji: "🐘", word: "ELEFANTE", correctLetter: "E", color: "#70a1ff" },
+    { emoji: "🦉", word: "BÚHO", correctLetter: "B", color: "#a4b0be" },
+    { emoji: "🍦", word: "HELADO", correctLetter: "H", color: "#ff9ff3" },
+    { emoji: "🍌", word: "BANANA", correctLetter: "B", color: "#eccc68" },
+    { emoji: "🎈", word: "GLOBO", correctLetter: "G", color: "#ff4757" },
+    { emoji: "🏠", word: "CASA", correctLetter: "C", color: "#ffa502" },
+    { emoji: "🚗", word: "CARRO", correctLetter: "C", color: "#ff6348" },
+    { emoji: "🌞", word: "SOL", correctLetter: "S", color: "#f1c40f" },
+    { emoji: "🌙", word: "LUNA", correctLetter: "L", color: "#f5f6fa" },
+    { emoji: "🦋", word: "MARIPOSA", correctLetter: "M", color: "#00d2d3" },
+    { emoji: "🥕", word: "ZANAHORIA", correctLetter: "Z", color: "#ff9f43" },
+    { emoji: "🍓", word: "FRESA", correctLetter: "F", color: "#ee5253" },
+    { emoji: "🦖", word: "DINOSAURIO", correctLetter: "D", color: "#1dd1a1" },
+    { emoji: "🎸", word: "GUITARRA", correctLetter: "G", color: "#ff9f43" },
+    { emoji: "🚀", word: "COHETE", correctLetter: "C", color: "#54a0ff" },
+    { emoji: "🐝", word: "ABEJA", correctLetter: "A", color: "#feca57" },
+    { emoji: "🚢", word: "BARCO", correctLetter: "B", color: "#48dbfb" },
+    { emoji: "👒", word: "SOMBRERO", correctLetter: "S", color: "#ff9ff3" },
+    { emoji: "🍇", word: "UVA", correctLetter: "U", color: "#5f27cd" },
+    { emoji: "🧸", word: "OSITO", correctLetter: "O", color: "#cd84f1" },
+    { emoji: "🍉", word: "SANDÍA", correctLetter: "S", color: "#ff6b6b" },
+    { emoji: "🐥", word: "POLLITO", correctLetter: "P", color: "#fff200" },
+    { emoji: "🦓", word: "CEBRA", correctLetter: "C", color: "#d2dae2" },
+    { emoji: "🚲", word: "BICI", correctLetter: "B", color: "#fffa65" },
+    { emoji: "🍩", word: "DONA", correctLetter: "D", color: "#ffaf40" },
+    { emoji: "🌳", word: "ÁRBOL", correctLetter: "A", color: "#32ff7e" },
+    { emoji: "🍭", word: "PALETA", correctLetter: "P", color: "#ff4dff" }
+        ];
+        
+        let letters = [];
+        let shadowZone = { x: 0, y: 0, w: 120, h: 120 };
+        let targetLetter = "";
+        
+        function resizeCanvas() {
+            W = 1000;
+            H = 550;
+            canvas.width = W;
+            canvas.height = H;
+            repositionItems();
+            drawCanvas();
+        }
+        
+        function repositionItems() {
+            const spacing = W / (letters.length + 1);
+            letters.forEach((l, i) => {
+                // Letras más arriba
+                const px = spacing * (i + 1) - l.w/2;
+                const py = 40; 
+                l.x = px; l.y = py;
+                l.originalX = px; l.originalY = py;
+            });
+            shadowZone.x = W/2 - shadowZone.w/2;
+            shadowZone.y = H - 150;
+        }
+        
+        function initLevel(level) {
+            currentLevel = level;
+            const levelData = LEVELS[level-1];
+            targetLetter = levelData.correctLetter;
+            
+            const alphabet = "ABCDEFILMNOPSTU";
+            let distractors = [];
+            while(distractors.length < 2) {
+                let rand = alphabet[Math.floor(Math.random() * alphabet.length)];
+                if(rand !== targetLetter && !distractors.includes(rand)) distractors.push(rand);
+            }
+            
+            const lettersArray = [targetLetter, ...distractors].sort(() => Math.random() - 0.5);
+            
+            letters = lettersArray.map((l) => ({
+                letter: l, w: 100, h: 100, x: 0, y: 0,
+                originalX: 0, originalY: 0, matched: false,
+                color: `hsl(${Math.random() * 360}, 70%, 60%)`
+            }));
+            
+            score = 0;
+            levelComplete = false;
+            nextBtn.disabled = true;
+            repositionItems();
+            levelNameSpan.innerText = `Nivel ${level}`;
+            scoreBoxSpan.innerHTML = `⭐ 0 / 1`;
+            messageDiv.innerHTML = `Busca la letra inicial de <b>${levelData.word}</b>`;
+            drawCanvas();
+        }
+
+        function drawLetter(l, isDragging) {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = isDragging ? 20 : 10;
+            ctx.shadowOffsetY = isDragging ? 10 : 5;
+
+            ctx.fillStyle = l.color;
+            ctx.beginPath();
+            ctx.roundRect(l.x, l.y, l.w, l.h, 20);
+            ctx.fill();
+
+            ctx.fillStyle = "white";
+            ctx.font = "bold 60px Montserrat";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(l.letter, l.x + l.w/2, l.y + l.h/2 + 5);
+            ctx.restore();
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Zona de destino
+            ctx.save();
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = levelComplete ? "#1dd1a1" : "#ccc";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(shadowZone.x, shadowZone.y, shadowZone.w, shadowZone.h);
+            ctx.restore();
+
+            // Dibujo y palabra (Más abajo para no chocar)
+            const levelData = LEVELS[currentLevel-1];
+            ctx.textAlign = "center";
+            ctx.font = "140px Arial";
+            ctx.fillText(levelData.emoji, W/2, H/2 + 20);
+            
+            ctx.font = "bold 50px Montserrat";
+            ctx.fillStyle = "#2d3436";
+            const displayWord = levelComplete ? levelData.word : "_ " + levelData.word.substring(1);
+            ctx.fillText(displayWord, W/2, H/2 + 110);
+
+            // Dibujar letras al final
+            letters.forEach((l, i) => {
+                if (!l.matched || (dragging && dragIndex === i)) {
+                    drawLetter(l, dragging && dragIndex === i);
+                }
+            });
+        }
+
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * (W / rect.width),
+                y: (clientY - rect.top) * (H / rect.height)
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (levelComplete) return;
+            const { x, y } = getCoords(e);
+            letters.forEach((l, i) => {
+                if (x >= l.x && x <= l.x + l.w && y >= l.y && y <= l.y + l.h) {
+                    dragging = true; dragIndex = i;
+                    dragOffsetX = x - l.x; dragOffsetY = y - l.y;
+                }
+            });
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const { x, y } = getCoords(e);
+            letters[dragIndex].x = x - dragOffsetX;
+            letters[dragIndex].y = y - dragOffsetY;
+            drawCanvas();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (!dragging) return;
+            const l = letters[dragIndex];
+            const centerX = l.x + l.w/2;
+            const centerY = l.y + l.h/2;
+
+            if (centerX > shadowZone.x && centerX < shadowZone.x + shadowZone.w &&
+                centerY > shadowZone.y && centerY < shadowZone.y + shadowZone.h) {
+                if (l.letter === targetLetter) {
+                    l.matched = true;
+                    l.x = shadowZone.x + (shadowZone.w - l.w)/2;
+                    l.y = shadowZone.y + (shadowZone.h - l.h)/2;
+                    score = 1;
+                    levelComplete = true;
+                    scoreBoxSpan.innerHTML = `⭐ 1 / 1`;
+                    messageDiv.innerHTML = "<b>¡EXCELENTE!</b> 🎉";
+                    nextBtn.disabled = currentLevel >= TOTAL_LEVELS;
+                } else {
+                    l.x = l.originalX; l.y = l.originalY;
+                }
+            } else {
+                l.x = l.originalX; l.y = l.originalY;
+            }
+            dragging = false;
+            drawCanvas();
+        });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); canvas.dispatchEvent(new MouseEvent('mousedown', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY})); }, {passive:false});
+        window.addEventListener('touchmove', (e) => { if(dragging) { e.preventDefault(); window.dispatchEvent(new MouseEvent('mousemove', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY})); } }, {passive:false});
+        window.addEventListener('touchend', () => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+        resetBtn.onclick = () => initLevel(currentLevel);
+        nextBtn.onclick = () => { if(currentLevel < TOTAL_LEVELS) initLevel(currentLevel + 1); };
+
+        window.onload = () => {
+            resizeCanvas();
+            initLevel(1);
+            setInterval(drawCanvas, 1000/60);
+        };
+    })();
+</script>
+</body>
+</html>

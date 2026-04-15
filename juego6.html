@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Burbujas Mágicas | Preescolar</title>
+    <style>
+        :root {
+            --primary: #4facfe;
+            --secondary: #00f2fe;
+            --accent: #ff6b6b;
+            --bg-ui: #fef3d6;
+        }
+
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .game-container {
+            background: var(--bg-ui);
+            border-radius: 40px;
+            padding: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 30px;
+            background: #87CEEB;
+            cursor: pointer;
+            width: 100%;
+            height: auto;
+            border: 5px solid #fff;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.5);
+            padding: 10px;
+            border-radius: 25px;
+        }
+
+        .score-box {
+            font-size: 1.5rem;
+            color: #2d3436;
+            font-weight: bold;
+        }
+
+        .level-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .level-btn {
+            background: #ddd;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            opacity: 0.6;
+        }
+
+        .level-btn.active {
+            background: #2a9d8f;
+            color: white;
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .level-btn.unlocked {
+            background: #f4d58c;
+            opacity: 1;
+        }
+
+        .btn-reset {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #b85e3a;
+        }
+
+        .btn-reset:active { transform: translateY(2px); box-shadow: 0 2px 0 #b85e3a; }
+
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 30px;
+            box-shadow: 0 0 100px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="info-panel">
+        <div class="score-box">🎈 <span id="scoreValue">0</span> / <span id="goalValue">10</span></div>
+        
+        <div class="level-buttons">
+            <button id="btnLvl1" class="level-btn active">1</button>
+            <button id="btnLvl2" class="level-btn">2</button>
+            <button id="btnLvl3" class="level-btn">3</button>
+        </div>
+
+        <button id="resetBtn" class="btn-reset">🔄 REINICIAR</button>
+         <button><a href="./index.html">Volver al Inicio</a></button>
+    </div>
+</div>
+
+<div id="winModal" class="celebration">
+    <h1 id="winEmoji">🎉</h1>
+    <h2 id="winTitle">¡BIEN HECHO!</h2>
+    <button onclick="closeModal()" class="btn-reset">CONTINUAR</button>
+      
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreValue');
+        const goalSpan = document.getElementById('goalValue');
+        const winModal = document.getElementById('winModal');
+
+        let W = 900, H = 500;
+        let score = 0;
+        let currentLevel = 1;
+        let bubbles = [];
+        let gameActive = true;
+        let popEffects = [];
+
+        const LEVEL_CONFIG = {
+            1: { goal: 10, maxBubbles: 5, speed: 1.0, spawnRate: 60, colors: ["#FFB7B2", "#B5EAD7", "#C7CEEA"], wind: 0 },
+            2: { goal: 15, maxBubbles: 8, speed: 1.5, spawnRate: 40, colors: ["#FFDAC1", "#E2F0CB", "#F7C6D9"], wind: 0 },
+            3: { goal: 20, maxBubbles: 12, speed: 2.0, spawnRate: 30, colors: ["#D4A5E0", "#FF9AA2", "#FFFFD8"], wind: 0.5 }
+        };
+
+        // --- SISTEMA DE SONIDO (Sintetizador Web Audio) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playPopSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function resizeCanvas() {
+            const maxWidth = Math.min(900, window.innerWidth - 40);
+            canvas.width = maxWidth;
+            canvas.height = maxWidth * 0.6;
+            W = canvas.width;
+            H = canvas.height;
+        }
+
+        function initLevel(lvl) {
+            currentLevel = lvl;
+            score = 0;
+            bubbles = [];
+            popEffects = [];
+            gameActive = true;
+            updateUI();
+        }
+
+        function updateUI() {
+            scoreSpan.innerText = score;
+            goalSpan.innerText = LEVEL_CONFIG[currentLevel].goal;
+            document.querySelectorAll('.level-btn').forEach((btn, i) => {
+                btn.className = 'level-btn' + (i + 1 === currentLevel ? ' active' : '');
+            });
+        }
+
+        function spawnBubble() {
+            const config = LEVEL_CONFIG[currentLevel];
+            if (bubbles.length < config.maxBubbles && Math.random() < 0.05) {
+                bubbles.push({
+                    x: Math.random() * (W - 60) + 30,
+                    y: H + 50,
+                    r: 25 + Math.random() * 15,
+                    speedY: -(config.speed + Math.random()),
+                    speedX: (Math.random() - 0.5) * config.wind * 2,
+                    color: config.colors[Math.floor(Math.random() * config.colors.length)]
+                });
+            }
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            spawnBubble();
+
+            bubbles.forEach((b, i) => {
+                b.y += b.speedY;
+                b.x += b.speedX;
+                if (b.y + b.r < 0) bubbles.splice(i, 1);
+            });
+
+            popEffects.forEach((p, i) => {
+                p.life -= 0.05;
+                if (p.life <= 0) popEffects.splice(i, 1);
+            });
+
+            if (score >= LEVEL_CONFIG[currentLevel].goal) {
+                gameActive = false;
+                showWin();
+            }
+        }
+
+        function draw() {
+            // Fondo Agua
+            const sky = ctx.createLinearGradient(0, 0, 0, H);
+            sky.addColorStop(0, "#87CEEB");
+            sky.addColorStop(1, "#E0F7FA");
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, W, H);
+
+            // Burbujas
+            bubbles.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                
+                // Brillo de la burbuja
+                ctx.beginPath();
+                ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = "white";
+                ctx.globalAlpha = 0.5;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+
+            // Efectos de texto (+1)
+            popEffects.forEach(p => {
+                ctx.fillStyle = `rgba(255, 107, 107, ${p.life})`;
+                ctx.font = "bold 30px Arial";
+                ctx.fillText("+1", p.x, p.y);
+            });
+        }
+
+        function handleClick(e) {
+            if (!gameActive) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const mouseX = (clientX - rect.left) * (W / rect.width);
+            const mouseY = (clientY - rect.top) * (H / rect.height);
+
+            bubbles.forEach((b, i) => {
+                const dist = Math.hypot(mouseX - b.x, mouseY - b.y);
+                if (dist < b.r) {
+                    bubbles.splice(i, 1);
+                    popEffects.push({ x: b.x, y: b.y, life: 1 });
+                    score++;
+                    scoreSpan.innerText = score;
+                    playPopSound();
+                }
+            });
+        }
+
+        function showWin() {
+            const emojis = ["🦁", "🦒", "🐘", "🦖", "🐧"];
+            document.getElementById('winEmoji').innerText = emojis[currentLevel - 1] || "🌟";
+            winModal.style.display = "block";
+        }
+
+        window.closeModal = () => {
+            winModal.style.display = "none";
+            if (currentLevel < 3) initLevel(currentLevel + 1);
+            else initLevel(1);
+        };
+
+        // Eventos
+        canvas.addEventListener('mousedown', handleClick);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleClick(e); });
+        document.getElementById('btnLvl1').onclick = () => initLevel(1);
+        document.getElementById('btnLvl2').onclick = () => initLevel(2);
+        document.getElementById('btnLvl3').onclick = () => initLevel(3);
+        document.getElementById('resetBtn').onclick = () => initLevel(currentLevel);
+        window.onresize = resizeCanvas;
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        resizeCanvas();
+        initLevel(1);
+        loop();
+    })();
+</script>
+</body>
+</html>

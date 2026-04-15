@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Atrapa estrellas - 3 niveles mágicos | Juego infantil con mouse</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1b3b6f 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Comic Neue', 'Comic Neue', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+            margin: 0;
+            padding: 20px;
+            cursor: none;
+        }
+
+        .game-wrapper {
+            background: #fef3d6;
+            border-radius: 70px;
+            padding: 20px 25px 25px;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 50px;
+            background: #0a2f44;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+            cursor: none;
+            width: 100%;
+            height: auto;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 20px 10px 10px;
+            background: #ffefc0;
+            padding: 10px 20px;
+            border-radius: 50px;
+            box-shadow: inset 0 1px 5px rgba(0,0,0,0.1), 0 6px 0 #c29b4a;
+        }
+
+        .score {
+            background: #f4a261;
+            border-radius: 50px;
+            padding: 6px 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.6rem;
+            text-shadow: 2px 2px 0 #b45f2b;
+        }
+
+        .lives {
+            background: #e76f51;
+            border-radius: 50px;
+            padding: 6px 18px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff3cf;
+        }
+
+        .shield-indicator {
+            background: #3498db;
+            border-radius: 50px;
+            padding: 6px 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .level-selector {
+            display: flex;
+            gap: 10px;
+            background: #ffd966;
+            padding: 5px 15px;
+            border-radius: 40px;
+        }
+        .level-btn {
+            background: #f4d58c;
+            box-shadow: 0 3px 0 #b97f3a;
+            padding: 6px 18px;
+            font-size: 1rem;
+            color: #5c3e1a;
+            cursor: pointer;
+            border-radius: 40px;
+            font-weight: bold;
+        }
+        .level-btn.active {
+            background: #6a994e;
+            color: white;
+            box-shadow: 0 3px 0 #3f6b2b;
+        }
+        button {
+            background: #6a994e;
+            border: none;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #3f6b2b;
+            transition: 0.05s linear;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #3f6b2b;
+        }
+        .message {
+            background: #fff3cf;
+            border-radius: 2rem;
+            padding: 8px 16px;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #d4641c;
+            text-align: center;
+        }
+        footer {
+            font-size: 0.8rem;
+            color: #b97f3a;
+            text-align: center;
+            margin-top: 12px;
+        }
+        @media (max-width: 650px) {
+            .game-wrapper { padding: 12px 15px 20px; }
+            .score, .lives, .shield-indicator { font-size: 1.1rem; padding: 4px 12px; }
+            .level-btn { padding: 4px 10px; font-size: 0.8rem; }
+            button { font-size: 0.9rem; padding: 6px 14px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="800" height="500" style="width:100%; max-width:800px; aspect-ratio:800/500"></canvas>
+
+    <div class="info-panel">
+        <div class="score">⭐ <span id="scoreValue">0</span></div>
+        <div class="lives">❤️ <span id="livesValue">3</span></div>
+        <div class="shield-indicator" id="shieldDisplay">🛡️ Escudo: 0</div>
+        <div class="level-selector">
+            <div id="level1Btn" class="level-btn active">🌟 Nivel 1</div>
+            <div id="level2Btn" class="level-btn">✨ Nivel 2</div>
+            <div id="level3Btn" class="level-btn">⚡ Nivel 3</div>
+        </div>
+        <button id="resetBtn">🔄 Reiniciar nivel</button>
+    </div>
+    <div id="messageBox" class="message">🐣 ¡Mueve el mouse! Atrapa estrellas y evita obstáculos. ¡Cada nivel es más emocionante! 🐣</div>
+    <button><a href="./index.html">Volver al Inicio</a></button>
+    <footer>💡 Nivel 1: fácil | Nivel 2: estrellas dobles y corazones | Nivel 3: estrellas triples, rocas peligrosas y diamantes especiales</footer>
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreValue');
+        const livesSpan = document.getElementById('livesValue');
+        const shieldSpan = document.getElementById('shieldDisplay');
+        const messageDiv = document.getElementById('messageBox');
+        const resetBtn = document.getElementById('resetBtn');
+        const level1Btn = document.getElementById('level1Btn');
+        const level2Btn = document.getElementById('level2Btn');
+        const level3Btn = document.getElementById('level3Btn');
+
+        const W = 800, H = 500;
+        canvas.width = W;
+        canvas.height = H;
+
+        // Niveles
+        let currentLevel = 1;
+        
+        // Estado del juego
+        let score = 0;
+        let lives = 3;
+        let shield = 0;          // escudo activo (número de protecciones)
+        let gameActive = true;
+        let win = false;
+        let targetScore = 15;    // según nivel
+        
+        // Posición de la red (mouse)
+        let netX = W/2, netY = H/2;
+        const NET_RADIUS = 25;
+        
+        // Objetos
+        let stars = [];      // {x, y, radius, speedY, value, type}
+        let clouds = [];
+        let hearts = [];     // nivel 2 y 3
+        let rocks = [];      // nivel 3 (quitan 2 vidas)
+        let diamonds = [];   // nivel 3 (dan 5 puntos y escudo)
+        
+        // Control de spawn
+        let starSpawnDelay = 0;
+        let cloudSpawnDelay = 0;
+        let heartSpawnDelay = 0;
+        let rockSpawnDelay = 0;
+        let diamondSpawnDelay = 0;
+        
+        // Parámetros configurables por nivel
+        let starSpeedBase = 1.5;
+        let cloudSpeedBase = 1.0;
+        let starSpawnRate = 35;
+        let cloudSpawnRate = 70;
+        let heartSpawnRate = 180;
+        let rockSpawnRate = 200;
+        let diamondSpawnRate = 250;
+        
+        // Radio de objetos
+        const STAR_RADIUS = 12;
+        const CLOUD_RADIUS = 18;
+        const HEART_RADIUS = 12;
+        const ROCK_RADIUS = 14;
+        const DIAMOND_RADIUS = 11;
+        
+        // Configurar parámetros según nivel
+        function setLevelParameters() {
+            if (currentLevel === 1) {
+                targetScore = 15;
+                starSpeedBase = 1.3;
+                cloudSpeedBase = 0.9;
+                starSpawnRate = 40;
+                cloudSpawnRate = 80;
+                // sin corazones, rocas, diamantes
+                heartSpawnRate = 999;
+                rockSpawnRate = 999;
+                diamondSpawnRate = 999;
+                lives = 999;   // infinitas
+                shield = 0;
+                if(livesSpan) livesSpan.textContent = "∞";
+            } 
+            else if (currentLevel === 2) {
+                targetScore = 25;
+                starSpeedBase = 1.8;
+                cloudSpeedBase = 1.3;
+                starSpawnRate = 35;
+                cloudSpawnRate = 65;
+                heartSpawnRate = 170;
+                rockSpawnRate = 999;
+                diamondSpawnRate = 999;
+                lives = 3;
+                shield = 0;
+                livesSpan.textContent = "3";
+            } 
+            else { // Nivel 3
+                targetScore = 35;
+                starSpeedBase = 2.2;
+                cloudSpeedBase = 1.8;
+                starSpawnRate = 28;
+                cloudSpawnRate = 55;
+                heartSpawnRate = 150;
+                rockSpawnRate = 180;
+                diamondSpawnRate = 220;
+                lives = 3;
+                shield = 0;
+                livesSpan.textContent = "3";
+            }
+            updateUI();
+            updateShieldDisplay();
+        }
+        
+        function updateUI() {
+            scoreSpan.textContent = score;
+            if (currentLevel === 1) livesSpan.textContent = "∞";
+            else livesSpan.textContent = lives;
+        }
+        
+        function updateShieldDisplay() {
+            shieldSpan.innerHTML = `🛡️ Escudo: ${shield}`;
+        }
+        
+        function showMessage(msg, isTemporary = true) {
+            messageDiv.innerHTML = msg;
+            if (isTemporary) {
+                setTimeout(() => {
+                    if (gameActive && !win) {
+                        if (currentLevel === 1) messageDiv.innerHTML = "🐣 ¡Nivel 1! Atrapa 15 estrellas, las nubes no quitan vida";
+                        else if (currentLevel === 2) messageDiv.innerHTML = "✨ ¡Nivel 2! Estrellas doradas valen 2, corazones dan vida extra ✨";
+                        else messageDiv.innerHTML = "⚡ ¡Nivel 3! Cuidado con las rocas (quitan 2 vidas), los diamantes dan escudo y 5 puntos ⚡";
+                    }
+                }, 2000);
+            }
+        }
+        
+        function resetGame() {
+            score = 0;
+            shield = 0;
+            gameActive = true;
+            win = false;
+            stars = [];
+            clouds = [];
+            hearts = [];
+            rocks = [];
+            diamonds = [];
+            starSpawnDelay = 5;
+            cloudSpawnDelay = 8;
+            heartSpawnDelay = 10;
+            rockSpawnDelay = 15;
+            diamondSpawnDelay = 20;
+            setLevelParameters(); // ajusta lives y target según nivel
+            updateUI();
+            updateShieldDisplay();
+            netX = W/2;
+            netY = H/2;
+            showMessage(`🌟 Nivel ${currentLevel} reiniciado. ¡Buena suerte! 🌟`);
+        }
+        
+        // Spawn de objetos
+        function spawnStar() {
+            let value = 1;
+            let type = "normal";
+            if (currentLevel === 2) {
+                if (Math.random() < 0.35) { value = 2; type = "golden"; }
+            } else if (currentLevel === 3) {
+                if (Math.random() < 0.4) { value = 3; type = "brilliant"; }
+                else if (Math.random() < 0.2) { value = 1; type = "normal"; }
+                else { value = 2; type = "golden"; }
+            }
+            stars.push({
+                x: 25 + Math.random() * (W - 50),
+                y: -STAR_RADIUS,
+                radius: STAR_RADIUS,
+                speedY: starSpeedBase + Math.random() * 1.3,
+                value: value,
+                type: type
+            });
+        }
+        
+        function spawnCloud() {
+            clouds.push({
+                x: 30 + Math.random() * (W - 60),
+                y: -CLOUD_RADIUS,
+                radius: CLOUD_RADIUS,
+                speedY: cloudSpeedBase + Math.random() * 1.2
+            });
+        }
+        
+        function spawnHeart() {
+            if (currentLevel < 2) return;
+            hearts.push({
+                x: 30 + Math.random() * (W - 60),
+                y: -HEART_RADIUS,
+                radius: HEART_RADIUS,
+                speedY: 1.4 + Math.random() * 1.2
+            });
+        }
+        
+        function spawnRock() {
+            if (currentLevel !== 3) return;
+            rocks.push({
+                x: 35 + Math.random() * (W - 70),
+                y: -ROCK_RADIUS,
+                radius: ROCK_RADIUS,
+                speedY: 1.8 + Math.random() * 1.5
+            });
+        }
+        
+        function spawnDiamond() {
+            if (currentLevel !== 3) return;
+            diamonds.push({
+                x: 30 + Math.random() * (W - 60),
+                y: -DIAMOND_RADIUS,
+                radius: DIAMOND_RADIUS,
+                speedY: 1.5 + Math.random() * 1.2
+            });
+        }
+        
+        function updateObjects() {
+            // Estrellas
+            for (let i=0; i<stars.length; i++) {
+                stars[i].y += stars[i].speedY;
+                if (stars[i].y > H + 40) stars.splice(i--,1);
+            }
+            // Nubes
+            for (let i=0; i<clouds.length; i++) {
+                clouds[i].y += clouds[i].speedY;
+                if (clouds[i].y > H + 50) clouds.splice(i--,1);
+            }
+            // Corazones
+            for (let i=0; i<hearts.length; i++) {
+                hearts[i].y += hearts[i].speedY;
+                if (hearts[i].y > H + 40) hearts.splice(i--,1);
+            }
+            // Rocas
+            for (let i=0; i<rocks.length; i++) {
+                rocks[i].y += rocks[i].speedY;
+                if (rocks[i].y > H + 50) rocks.splice(i--,1);
+            }
+            // Diamantes
+            for (let i=0; i<diamonds.length; i++) {
+                diamonds[i].y += diamonds[i].speedY;
+                if (diamonds[i].y > H + 40) diamonds.splice(i--,1);
+            }
+        }
+        
+        function handleCollisions() {
+            if (!gameActive) return;
+            
+            // Estrellas
+            for (let i=0; i<stars.length; i++) {
+                const s = stars[i];
+                const dx = netX - s.x, dy = netY - s.y;
+                if (Math.hypot(dx, dy) < NET_RADIUS + s.radius) {
+                    score += s.value;
+                    updateUI();
+                    let msg = s.value === 3 ? "⚡ ¡Estrella brillante! +3 puntos ⚡" : (s.value === 2 ? "✨ ¡Estrella dorada! +2 ✨" : "⭐ +1 punto ⭐");
+                    showMessage(msg, true);
+                    stars.splice(i--,1);
+                    if (score >= targetScore && !win) {
+                        win = true;
+                        gameActive = false;
+                        showMessage(`🏆🌟 ¡VICTORIA! Completaste el nivel ${currentLevel} 🌟🏆`, false);
+                    }
+                }
+            }
+            
+            // Nubes (quitan vida o escudo)
+            for (let i=0; i<clouds.length; i++) {
+                const c = clouds[i];
+                if (Math.hypot(netX - c.x, netY - c.y) < NET_RADIUS + c.radius) {
+                    clouds.splice(i--,1);
+                    if (currentLevel === 1) {
+                        showMessage("💨 Nube inofensiva en nivel 1", true);
+                    } else {
+                        if (shield > 0) {
+                            shield--;
+                            updateShieldDisplay();
+                            showMessage("🛡️ ¡Escudo activo! La nube no te hizo daño", true);
+                        } else {
+                            if (currentLevel === 2) lives--;
+                            else lives--;   // nivel 3 también pierde 1 vida por nube
+                            if (lives <= 0) {
+                                gameActive = false;
+                                win = false;
+                                showMessage("😢 Game Over. Reinicia para seguir jugando", false);
+                            } else {
+                                updateUI();
+                                showMessage("💨 ¡Una nube te quitó una vida! 💨", true);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Corazones (solo nivel 2 y 3)
+            for (let i=0; i<hearts.length; i++) {
+                const h = hearts[i];
+                if (Math.hypot(netX - h.x, netY - h.y) < NET_RADIUS + h.radius) {
+                    hearts.splice(i--,1);
+                    if (currentLevel >= 2) {
+                        if (lives < 5) lives++;
+                        updateUI();
+                        showMessage("❤️ ¡Corazón! +1 vida extra ❤️", true);
+                    }
+                }
+            }
+            
+            // Rocas (solo nivel 3, quitan 2 vidas o 1 escudo por golpe)
+            for (let i=0; i<rocks.length; i++) {
+                const r = rocks[i];
+                if (Math.hypot(netX - r.x, netY - r.y) < NET_RADIUS + r.radius) {
+                    rocks.splice(i--,1);
+                    if (shield > 0) {
+                        shield--;
+                        updateShieldDisplay();
+                        showMessage("🛡️ El escudo detuvo la roca peligrosa", true);
+                    } else {
+                        lives -= 2;
+                        if (lives <= 0) {
+                            gameActive = false;
+                            win = false;
+                            showMessage("💥 ¡La roca te dejó sin vidas! Game Over 💥", false);
+                        } else {
+                            updateUI();
+                            showMessage("💥 ¡Roca! Pierdes 2 vidas 💥", true);
+                        }
+                    }
+                }
+            }
+            
+            // Diamantes (nivel 3: +5 puntos y +1 escudo)
+            for (let i=0; i<diamonds.length; i++) {
+                const d = diamonds[i];
+                if (Math.hypot(netX - d.x, netY - d.y) < NET_RADIUS + d.radius) {
+                    diamonds.splice(i--,1);
+                    score += 5;
+                    shield++;
+                    updateUI();
+                    updateShieldDisplay();
+                    showMessage("💎 ¡DIAMANTE! +5 puntos y +1 escudo 💎", true);
+                    if (score >= targetScore && !win) {
+                        win = true;
+                        gameActive = false;
+                        showMessage(`🏆🌟 ¡VICTORIA! Completaste el nivel ${currentLevel} 🌟🏆`, false);
+                    }
+                }
+            }
+        }
+        
+        function manageSpawn() {
+            if (!gameActive) return;
+            if (starSpawnDelay <= 0) { spawnStar(); starSpawnDelay = starSpawnRate; }
+            else starSpawnDelay--;
+            
+            if (cloudSpawnDelay <= 0) { spawnCloud(); cloudSpawnDelay = cloudSpawnRate; }
+            else cloudSpawnDelay--;
+            
+            if (currentLevel >= 2) {
+                if (heartSpawnDelay <= 0) { spawnHeart(); heartSpawnDelay = heartSpawnRate; }
+                else heartSpawnDelay--;
+            }
+            
+            if (currentLevel === 3) {
+                if (rockSpawnDelay <= 0) { spawnRock(); rockSpawnDelay = rockSpawnRate; }
+                else rockSpawnDelay--;
+                if (diamondSpawnDelay <= 0) { spawnDiamond(); diamondSpawnDelay = diamondSpawnRate; }
+                else diamondSpawnDelay--;
+            }
+        }
+        
+        // ------------------- DIBUJO ESPECTACULAR -------------------
+        function drawBackground() {
+            if (currentLevel === 1) {
+                const grad = ctx.createLinearGradient(0,0,0,H);
+                grad.addColorStop(0,"#87CEEB"); grad.addColorStop(1,"#4A90E2");
+                ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+                ctx.fillStyle="#FFF9C4"; ctx.beginPath(); ctx.arc(700,70,45,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle="#FFD700"; ctx.beginPath(); ctx.arc(700,70,38,0,Math.PI*2); ctx.fill();
+            } else if (currentLevel === 2) {
+                const grad = ctx.createLinearGradient(0,0,0,H);
+                grad.addColorStop(0,"#2c3e50"); grad.addColorStop(1,"#1a2a6c");
+                ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+                for(let i=0;i<80;i++){ ctx.fillStyle="#FFF9C4"; ctx.beginPath(); ctx.arc((i*131)%W,(i*73)%H,1.5,0,Math.PI*2); ctx.fill(); }
+                ctx.fillStyle="#FDF3A7"; ctx.beginPath(); ctx.arc(680,70,40,0,Math.PI*2); ctx.fill();
+            } else {
+                const grad = ctx.createLinearGradient(0,0,0,H);
+                grad.addColorStop(0,"#0b1a33"); grad.addColorStop(1,"#1b2a4a");
+                ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+                for(let i=0;i<120;i++){ ctx.fillStyle="#FFEAA7"; ctx.beginPath(); ctx.arc((i*97)%W,(i*53)%H,1,0,Math.PI*2); ctx.fill(); }
+                // Aurora
+                ctx.globalAlpha=0.3; for(let i=0;i<5;i++){ ctx.fillStyle="#00ffcc"; ctx.beginPath(); ctx.ellipse(400+Math.sin(Date.now()/2000+i)*50, 100+i*30, 150, 40, 0, 0, Math.PI*2); ctx.fill(); }
+                ctx.globalAlpha=1;
+                ctx.fillStyle="#E8D88A"; ctx.beginPath(); ctx.arc(680,70,35,0,Math.PI*2); ctx.fill();
+            }
+        }
+        
+        function drawStars() {
+            for (let s of stars) {
+                ctx.save(); ctx.shadowBlur=8;
+                if(s.type==="golden") ctx.fillStyle="#F7DC6F";
+                else if(s.type==="brilliant") ctx.fillStyle="#FFE484";
+                else ctx.fillStyle="#FFD966";
+                ctx.beginPath();
+                const spikes=5, outerR=s.radius, innerR=s.radius*0.45;
+                let rot=Math.PI/2*3, step=Math.PI/spikes;
+                ctx.moveTo(s.x+Math.cos(rot)*outerR, s.y+Math.sin(rot)*outerR);
+                for(let i=0;i<spikes;i++){
+                    rot+=step; ctx.lineTo(s.x+Math.cos(rot)*innerR, s.y+Math.sin(rot)*innerR);
+                    rot+=step; ctx.lineTo(s.x+Math.cos(rot)*outerR, s.y+Math.sin(rot)*outerR);
+                }
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle="#E67E22"; ctx.font="bold 12px 'Segoe UI Emoji'";
+                if(s.type==="golden") ctx.fillText("✨",s.x-6,s.y-6);
+                else if(s.type==="brilliant") ctx.fillText("⭐",s.x-5,s.y-5);
+                else ctx.fillText("★",s.x-4,s.y-4);
+                ctx.restore();
+            }
+        }
+        
+        function drawClouds() {
+            for(let c of clouds){
+                ctx.fillStyle=currentLevel===1?"#D3D9E0":"#4A5D6B";
+                ctx.beginPath(); ctx.ellipse(c.x,c.y,c.radius,c.radius*0.7,0,0,Math.PI*2);
+                ctx.ellipse(c.x-12,c.y-5,c.radius*0.7,c.radius*0.5,0,0,Math.PI*2);
+                ctx.ellipse(c.x+12,c.y-5,c.radius*0.7,c.radius*0.5,0,0,Math.PI*2);
+                ctx.fill(); ctx.fillStyle="#2C3E50"; ctx.font="20px 'Segoe UI Emoji'"; ctx.fillText("☁️",c.x-12,c.y-8);
+            }
+        }
+        
+        function drawHearts() {
+            for(let h of hearts){
+                ctx.fillStyle="#FF6B6B"; ctx.beginPath(); ctx.moveTo(h.x,h.y-5);
+                ctx.bezierCurveTo(h.x-8,h.y-12,h.x-14,h.y-2,h.x,h.y+8);
+                ctx.bezierCurveTo(h.x+14,h.y-2,h.x+8,h.y-12,h.x,h.y-5);
+                ctx.fill(); ctx.fillStyle="#FFB3B3"; ctx.font="14px 'Segoe UI Emoji'"; ctx.fillText("❤️",h.x-8,h.y-2);
+            }
+        }
+        
+        function drawRocks() {
+            for(let r of rocks){
+                ctx.fillStyle="#6E4B3A"; ctx.shadowBlur=3; ctx.beginPath(); ctx.ellipse(r.x,r.y,r.radius,r.radius*0.8,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle="#4A2A1A"; ctx.font="16px 'Segoe UI Emoji'"; ctx.fillText("🪨",r.x-8,r.y-6);
+            }
+        }
+        
+        function drawDiamonds() {
+            for(let d of diamonds){
+                ctx.fillStyle="#00CED1"; ctx.beginPath(); ctx.moveTo(d.x,d.y-8); ctx.lineTo(d.x+6,d.y); ctx.lineTo(d.x,d.y+8); ctx.lineTo(d.x-6,d.y); ctx.fill();
+                ctx.fillStyle="#E0FFFF"; ctx.font="14px 'Segoe UI Emoji'"; ctx.fillText("💎",d.x-8,d.y-4);
+            }
+        }
+        
+        function drawNet() {
+            ctx.save(); ctx.shadowBlur=6;
+            ctx.beginPath(); ctx.arc(netX,netY,NET_RADIUS,0,Math.PI*2); ctx.strokeStyle="#D4AC0D"; ctx.lineWidth=4; ctx.stroke();
+            ctx.beginPath(); ctx.arc(netX,netY,NET_RADIUS-3,0,Math.PI*2); ctx.stroke();
+            for(let ang=0;ang<360;ang+=30){ let rad=ang*Math.PI/180; let x2=netX+Math.cos(rad)*(NET_RADIUS-2); let y2=netY+Math.sin(rad)*(NET_RADIUS-2); ctx.moveTo(netX,netY); ctx.lineTo(x2,y2);}
+            ctx.strokeStyle="#F7DC6F"; ctx.lineWidth=1.5; ctx.stroke();
+            ctx.fillStyle="#FFE484"; ctx.beginPath(); ctx.arc(netX,netY,8,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#D4AC0D"; ctx.font="bold 24px 'Segoe UI Emoji'"; ctx.fillText("🕸️",netX-14,netY-8);
+            ctx.restore();
+        }
+        
+        function drawStatus() {
+            if(!gameActive){
+                ctx.font="bold 34px 'Comic Neue'"; ctx.fillStyle=win?"#F7DC6F":"#E74C3C";
+                ctx.fillText(win?"🌟 ¡VICTORIA! 🌟":"💔 GAME OVER 💔",W/2-140,80);
+                ctx.font="bold 20px cursive"; ctx.fillStyle="#FFF3CF";
+                ctx.fillText("Presiona 'Reiniciar' o cambia de nivel",W/2-180,140);
+            }
+            ctx.font="bold 24px 'Comic Neue'"; ctx.fillStyle="#000000";
+            ctx.fillText("Meta: "+targetScore+" pts",W-140,35);
+            if(currentLevel===3) ctx.fillText("💎 Diamante: +5 pts + escudo",W-180,65);
+        }
+        
+        function draw() {
+            drawBackground();
+            drawClouds();
+            drawHearts();
+            drawRocks();
+            drawDiamonds();
+            drawStars();
+            drawNet();
+            drawStatus();
+        }
+        
+        function updateGame() {
+            if(gameActive){
+                updateObjects();
+                handleCollisions();
+                manageSpawn();
+            }
+            draw();
+        }
+        
+        let animationId;
+        function gameLoop(){ updateGame(); animationId = requestAnimationFrame(gameLoop); }
+        
+        // Mouse / touch
+        function handleMouseMove(e){
+            if(!gameActive) return;
+            const rect=canvas.getBoundingClientRect();
+            const scaleX=W/rect.width, scaleY=H/rect.height;
+            let cx,cy;
+            if(e.touches){ cx=e.touches[0].clientX; cy=e.touches[0].clientY; e.preventDefault();}
+            else { cx=e.clientX; cy=e.clientY; }
+            let canvasX=(cx-rect.left)*scaleX, canvasY=(cy-rect.top)*scaleY;
+            canvasX=Math.min(Math.max(NET_RADIUS,canvasX),W-NET_RADIUS);
+            canvasY=Math.min(Math.max(NET_RADIUS,canvasY),H-NET_RADIUS);
+            netX=canvasX; netY=canvasY;
+        }
+        
+        function switchLevel(level){
+            currentLevel=level;
+            setLevelParameters();
+            resetGame();
+            document.querySelectorAll('.level-btn').forEach(btn=>btn.classList.remove('active'));
+            if(level===1) level1Btn.classList.add('active');
+            else if(level===2) level2Btn.classList.add('active');
+            else level3Btn.classList.add('active');
+        }
+        
+        function initEvents(){
+            canvas.addEventListener('mousemove',handleMouseMove);
+            canvas.addEventListener('touchmove',handleMouseMove,{passive:false});
+            canvas.addEventListener('touchstart',handleMouseMove,{passive:false});
+            resetBtn.addEventListener('click',()=>resetGame());
+            level1Btn.addEventListener('click',()=>switchLevel(1));
+            level2Btn.addEventListener('click',()=>switchLevel(2));
+            level3Btn.addEventListener('click',()=>switchLevel(3));
+            canvas.style.cursor='none'; document.body.style.cursor='none';
+        }
+        
+        function init(){
+            initEvents();
+            setLevelParameters();
+            resetGame();
+            gameLoop();
+        }
+        init();
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio Juego Preescolar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --fondo: #FFF9E3;
+            --titulo: #FF6B6B;
+            --card-1: #FFD93D;
+            --card-2: #6BCB77;
+            --card-3: #4D96FF;
+            --card-4: #F473B9;
+            --card-5: #ed4dff;
+            --card-6: #f47373;
+            --texto: #2D3436;
+        }
+
+        body {
+            background-color: var(--fondo);
+            font-family: 'Quicksand', sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: var(--texto);
+        }
+
+        h1 {
+            font-family: 'Luckiest Guy', cursive;
+            text-align: center;
+            color: var(--titulo);
+            font-size: 3.5rem;
+            text-shadow: 3px 3px 0px #fff, 5px 5px 0px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+
+        /* Contenedor principal: 3 por fila */
+        .contenedor-juegos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Estilo de cada tarjeta de juego */
+        .card {
+            background: white;
+            border-radius: 30px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 10px 0px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 4px solid transparent;
+        }
+
+        .card:hover {
+            transform: translateY(-10px) rotate(2deg);
+        }
+
+        .card h2 {
+            font-size: 1.8rem;
+            margin: 15px 0;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Colores individuales para cada tarjeta */
+        .card:nth-child(1) { border-color: var(--card-1); }
+        .card:nth-child(2) { border-color: var(--card-2); }
+        .card:nth-child(3) { border-color: var(--card-3); }
+        .card:nth-child(4) { border-color: var(--card-4); }
+        .card:nth-child(5) { border-color: var(--card-5); }
+        .card:nth-child(6) { border-color: var(--card-6); }
+
+        /* Estilo de las imágenes (marcadores de posición) */
+        .card img {
+            width: 150px;
+            height: 150px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            object-fit: cover;
+        }
+
+        /* Botón de jugar */
+        .btn-jugar {
+            display: inline-block;
+            background-color: var(--titulo);
+            color: white;
+            text-decoration: none;
+            padding: 12px 35px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 5px 0 #c0392b;
+            transition: all 0.2s;
+        }
+
+        .btn-jugar:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #c0392b;
+        }
+
+        /* Ajuste para que se vean 3 exactos en pantallas grandes */
+        @media (min-width: 992px) {
+            .contenedor-juegos {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>✨ ¡A JUGAR Y APRENDER! ✨</h1>
+
+    <div class="contenedor-juegos">
+        <div class="card">
+            <img src="./puntos.png" alt="Puntos">
+            <h2>Une los puntos</h2>
+            <a href="./juego.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+
+        <div class="card">
+            <img src="https://img.icons8.com/clouds/200/star--v1.png" alt="Estrella">
+            <h2>Atrapa la estrella</h2>
+            <a href="./juego2.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+
+        <div class="card">
+            <img src="./formas.svg" alt="Números">
+            <h2>Arrastra las figuras</h2>
+            <a href="./juego3.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+
+        <div class="card">
+            <img src="./peces.png" alt="Pesca">
+            <h2>Pesca los números</h2>
+            <a href="./juego4.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+          <div class="card">
+            <img src="./letras.svg" alt="Letras">
+            <h2>Arrastrar letras</h2>
+            <a href="./juego5.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+        <div class="card">
+            <img src="./burbujas.svg" alt="Letras">
+            <h2>Explotar Burbujas</h2>
+            <a href="./juego6.html" class="btn-jugar">¡JUGAR!</a>
+        </div>
+    </div>
+
+</body>
+</html>

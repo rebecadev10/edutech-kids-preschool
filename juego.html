@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Juego: Unir Puntos Mágicos</title>
+    <style>
+        * { user-select: none; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1e6f5c 0%, #289672 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial Rounded MT Bold', 'Helvetica', sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+        .game-wrapper {
+            background: #ffefcf;
+            border-radius: 30px;
+            padding: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            width: 100%;
+            max-width: 1080px;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 20px;
+            background: #fffbf0;
+            cursor: crosshair;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 15px;
+            background: #f4d58d;
+            padding: 10px;
+            border-radius: 15px;
+        }
+        .badge { background: #e76f51; color: white; padding: 5px 12px; border-radius: 10px; font-weight: bold; }
+        .next-box { display: flex; align-items: center; gap: 8px; font-weight: bold; color: #264653; }
+        .target-num { background: white; width: 35px; height: 35px; display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 2px solid #2a9d8f; }
+        .buttons { display: flex; gap: 8px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+        button { border: none; padding: 10px 18px; border-radius: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
+        button:active { transform: translateY(3px); box-shadow: none; }
+        .btn-nav { background: #bc6c25; color: white; }
+        .btn-reset { background: #dda15e; }
+        .btn-next { background: #606c38; color: white; }
+        .message { text-align: center; margin-top: 10px; font-weight: bold; color: #283618; min-height: 1.2em; font-size: 1.2em; }
+        
+        /* Estilo para el mensaje de victoria final */
+        .victory-flash {
+            color: #d62828;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="700" height="550"></canvas>
+    
+    <div class="info-panel">
+        <div class="badge" id="lvlName">Nivel 1</div>
+        <div class="next-box">Siguiente: <div class="target-num" id="targetDisplay">1</div></div>
+        <div id="progText" style="font-weight: bold;">0 / 0</div>
+    </div>
+
+    <div class="buttons">
+        <button class="btn-nav" id="btnPrev">Anterior</button>
+        <button class="btn-reset" id="btnReset">Reiniciar</button>
+        <button class="btn-next" id="btnNext">Siguiente Nivel</button>
+    </div>
+    <div class="message" id="msg">¡Toca el 1 y arrastra!</div>
+    <button><a href="./index.html">Volver al Inicio</a></button>
+</div>
+
+<script>
+(function(){
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const LEVELS = [
+        {
+            name: "😊 Carita", fillColor: "#FFE066",
+            pts: [{x:350,y:80},{x:480,y:150},{x:520,y:260},{x:450,y:370},{x:350,y:400},{x:250,y:370},{x:180,y:260},{x:220,y:150}],
+            details: () => {
+                ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(300,200,8,0,Math.PI*2); ctx.arc(400,200,8,0,Math.PI*2); ctx.fill();
+                ctx.lineWidth=4; ctx.beginPath(); ctx.arc(350,260,40,0.2*Math.PI,0.8*Math.PI); ctx.stroke();
+            }
+        },
+        {
+            name: "🏠 Casita", fillColor: "#FFADAD",
+            pts: [{x:350,y:50},{x:550,y:200},{x:550,y:400},{x:150,y:400},{x:150,y:200}],
+            details: () => {
+                ctx.fillStyle="#A0C4FF"; ctx.fillRect(200,240,60,60); 
+                ctx.fillStyle="#7B2CBF"; ctx.fillRect(320,300,60,100);
+            }
+        },
+        {
+            name: "❤️ Corazón", fillColor: "#FF4D6D",
+            pts: [{x:350,y:140},{x:280,y:60},{x:180,y:100},{x:150,y:200},{x:350,y:400},{x:550,y:200},{x:520,y:100},{x:420,y:60}],
+            details: () => { ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(430,120,12,0,Math.PI*2); ctx.fill(); }
+        },
+        {
+            name: "🚀 Cohete", fillColor: "#DEE2E6",
+            pts: [{x:350,y:40},{x:420,y:140},{x:420,y:330},{x:480,y:380},{x:220,y:380},{x:280,y:330},{x:280,y:140}],
+            details: () => {
+                ctx.fillStyle="#FF9100"; ctx.beginPath(); ctx.moveTo(310,380); ctx.lineTo(350,430); ctx.lineTo(390,380); ctx.fill();
+                ctx.fillStyle="#00B4D8"; ctx.beginPath(); ctx.arc(350,210,25,0,Math.PI*2); ctx.fill();
+            }
+        },
+        {
+            name: "⭐ Estrella", fillColor: "#FDFFB6",
+            pts: [{x:350,y:40},{x:410,y:170},{x:550,y:180},{x:450,y:270},{x:490,y:400},{x:350,y:330},{x:210,y:400},{x:250,y:270},{x:150,y:180},{x:290,y:170}],
+            details: () => { ctx.fillStyle="#FFD60A"; ctx.beginPath(); ctx.arc(350,220,10,0,Math.PI*2); ctx.fill(); }
+        },
+        {
+            name: "⛵ Barco", fillColor: "#90E0EF",
+            pts: [{x:150,y:300},{x:550,y:300},{x:480,y:400},{x:220,y:400}],
+            details: () => {
+                ctx.fillStyle="#F07167"; ctx.beginPath(); ctx.moveTo(350,280); ctx.lineTo(350,100); ctx.lineTo(480,250); ctx.fill();
+                ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(350,280); ctx.lineTo(350,80); ctx.stroke();
+            }
+        },
+       
+        {
+            name: "🌳 Árbol", fillColor: "#70E000",
+            pts: [{x:350,y:60},{x:480,y:200},{x:400,y:200},{x:520,y:320},{x:180,y:320},{x:300,y:200},{x:220,y:200}],
+            details: () => { ctx.fillStyle="#9C6644"; ctx.fillRect(320,320,60,80); }
+        },
+        {
+            name: "☁️ Nube", fillColor: "#CAF0F8",
+            pts: [{x:250,y:300},{x:450,y:300},{x:550,y:220},{x:480,y:120},{x:350,y:100},{x:220,y:120},{x:150,y:220}],
+            details: () => { ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(300,180,20,0,Math.PI*2); ctx.arc(400,180,20,0,Math.PI*2); ctx.fill(); }
+        },
+        {
+            name: "🏰 Castillo", fillColor: "#ADB5BD",
+            pts: [{x:200,y:400},{x:200,y:200},{x:250,y:200},{x:250,y:250},{x:450,y:250},{x:450,y:200},{x:500,y:200},{x:500,y:400}],
+            details: () => {
+                ctx.fillStyle="#C1121F"; ctx.beginPath(); ctx.moveTo(180,200); ctx.lineTo(225,120); ctx.lineTo(270,200); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(430,200); ctx.lineTo(475,120); ctx.lineTo(520,200); ctx.fill();
+                ctx.fillStyle="#333"; ctx.fillRect(320,320,60,80);
+            }
+        },
+        {
+        name: "🐶 Perrito", fillColor: "#D7B197",
+        pts: [{x:250,y:350},{x:200,y:250},{x:220,y:100},{x:300,y:80},{x:400,y:80},{x:480,y:100},{x:500,y:250},{x:450,y:350},{x:350,y:380}],
+        details: () => {
+            // Orejas
+            ctx.fillStyle="#A67C52";
+            ctx.beginPath(); ctx.ellipse(220, 150, 30, 60, Math.PI/4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(480, 150, 30, 60, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+            // Ojos y nariz
+            ctx.fillStyle="black";
+            ctx.beginPath(); ctx.arc(310, 220, 8, 0, Math.PI*2); ctx.arc(390, 220, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(350, 280, 12, 0, Math.PI*2); ctx.fill();
+        }
+    },
+    {
+        name: "🐱 Gatito", fillColor: "#BDC3C7",
+        pts: [{x:350,y:400},{x:250,y:380},{x:200,y:280},{x:180,y:150},{x:250,y:100},{x:350,y:150},{x:450,y:100},{x:520,y:150},{x:500,y:280},{x:450,y:380}],
+        details: () => {
+            ctx.fillStyle="#FFADAD"; // Nariz rosa
+            ctx.beginPath(); ctx.moveTo(340, 250); ctx.lineTo(360, 250); ctx.lineTo(350, 265); ctx.fill();
+            ctx.strokeStyle="black"; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.moveTo(310, 260); ctx.lineTo(250, 250); ctx.moveTo(310, 270); ctx.lineTo(250, 280); // Bigotes
+            ctx.moveTo(390, 260); ctx.lineTo(450, 250); ctx.moveTo(390, 270); ctx.lineTo(450, 280); ctx.stroke();
+        }
+    },
+        
+    {
+        name: "🐠 Pez Espaciado",
+        fillColor: "#FFB703",
+        pts: [
+            { x: 580, y: 225, num: 1 },  // Boca (Derecha)
+            { x: 480, y: 120, num: 2 },  // Lomo arriba-adelante
+            { x: 320, y: 120, num: 3 },  // Lomo arriba-atrás
+            { x: 200, y: 200, num: 4 },  // Unión cola (Arriba)
+            { x: 80,  y: 100, num: 5 },  // Punta cola arriba
+            { x: 130, y: 225, num: 6 },  // Centro cola (Curva)
+            { x: 80,  y: 350, num: 7 },  // Punta cola abajo
+            { x: 200, y: 250, num: 8 },  // Unión cola (Abajo)
+            { x: 320, y: 350, num: 9 },  // Panza atrás
+            { x: 480, y: 350, num: 10 }, // Panza adelante
+            { x: 580, y: 225, num: 11 }  // Regreso a la boca (Cerrar)
+        ],
+        details: () => {
+            // Ojo bien ubicado
+            ctx.fillStyle = "black";
+            ctx.beginPath(); ctx.arc(500, 190, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(504, 186, 4, 0, Math.PI * 2); ctx.fill();
+            
+            // Aleta lateral como detalle (no como puntos para no ensuciar)
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(350, 200);
+            ctx.quadraticCurveTo(400, 150, 450, 200);
+            ctx.stroke();
+        }
+    },
+    {
+        name: "🦋 Mariposa Limpia",
+        fillColor: "#A2D2FF",
+        pts: [
+            { x: 350, y: 100, num: 1 },  // Centro Arriba
+            { x: 500, y: 50,  num: 2 },  // Ala Der-Arriba
+            { x: 600, y: 180, num: 3 },  // Ala Der-Punta
+            { x: 400, y: 240, num: 4 },  // Centro Medio
+            { x: 550, y: 380, num: 5 },  // Ala Der-Abajo
+            { x: 350, y: 330, num: 6 },  // Centro Abajo
+            { x: 150, y: 380, num: 7 },  // Ala Izq-Abajo
+            { x: 300, y: 240, num: 8 },  // Centro Medio
+            { x: 100, y: 180, num: 9 },  // Ala Izq-Punta
+            { x: 200, y: 50,  num: 10 }, // Ala Izq-Arriba
+            { x: 350, y: 100, num: 11 }  // Cierre
+        ],
+        details: () => {
+            ctx.fillStyle = "#264653";
+            ctx.beginPath(); ctx.ellipse(350, 230, 12, 110, 0, 0, Math.PI*2); ctx.fill();
+            // Antenas
+            ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(345, 120); ctx.lineTo(320, 60);
+            ctx.moveTo(355, 120); ctx.lineTo(380, 60);
+            ctx.stroke();
+        }
+    },
+   {
+    name: "🐢 Tortuga", fillColor: "#B5E48C",
+    pts: [
+        {x:350, y:80, num:1}, {x:450, y:100, num:2}, {x:520, y:160, num:3}, 
+        {x:550, y:260, num:4}, {x:520, y:340, num:5}, {x:450, y:390, num:6},
+        {x:350, y:410, num:7}, {x:250, y:390, num:8}, {x:180, y:340, num:9},
+        {x:150, y:260, num:10}, {x:180, y:160, num:11}, {x:250, y:100, num:12}
+    ],
+    details: () => {
+        ctx.strokeStyle="#1A759F"; ctx.lineWidth=2;
+        ctx.fillStyle="#99D98C";
+        // Patas ajustadas a la nueva altura
+        ctx.beginPath(); ctx.ellipse(200, 360, 30, 15, Math.PI/4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(500, 360, 30, 15, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+        // Cabeza movida hacia arriba
+        ctx.beginPath(); ctx.arc(100, 260, 40, 0, Math.PI*2); ctx.fill();
+        // Ojo
+        ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(85, 250, 5, 0, Math.PI*2); ctx.fill();
+    }
+},
+    {
+    name: "🍎 Manzana", fillColor: "#FF4D4D",
+    pts: [
+        {x:350, y:140, num:1}, {x:420, y:120, num:2}, {x:500, y:160, num:3}, 
+        {x:540, y:250, num:4}, {x:520, y:350, num:5}, {x:450, y:420, num:6},
+        {x:350, y:390, num:7}, {x:250, y:420, num:8}, {x:180, y:350, num:9},
+        {x:160, y:250, num:10}, {x:200, y:160, num:11}, {x:280, y:120, num:12}
+    ],
+    details: () => {
+        ctx.strokeStyle="#6A3805"; ctx.lineWidth=8;
+        ctx.beginPath(); ctx.moveTo(350, 140); ctx.lineTo(350, 70); ctx.stroke(); // Tallo
+        ctx.fillStyle="#4C9540";
+        ctx.beginPath(); ctx.ellipse(380, 90, 25, 12, Math.PI/4, 0, Math.PI*2); ctx.fill(); // Hoja
+    }
+},
+    {
+    name: "🐘 Elefante Azul", fillColor: "#8ECAE6",
+    pts: [
+        {x:300, y:150, num:1}, {x:450, y:150, num:2}, {x:520, y:180, num:3},
+        {x:580, y:250, num:4}, {x:600, y:350, num:5}, {x:550, y:450, num:6},
+        {x:450, y:480, num:7}, {x:300, y:480, num:8}, {x:250, y:450, num:9},
+        {x:220, y:350, num:10}, {x:120, y:350, num:11}, {x:80, y:300, num:12},
+        {x:100, y:250, num:13}, {x:200, y:250, num:14}, {x:220, y:200, num:15}
+    ],
+    details: () => {
+        ctx.fillStyle="#457B9D";
+        ctx.beginPath(); ctx.ellipse(450, 280, 80, 100, 0, 0, Math.PI*2); ctx.fill(); // Oreja
+        ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(280, 280, 8, 0, Math.PI*2); ctx.fill(); // Ojo
+    }
+},
+    {
+        name: "🐥 Pollito", fillColor: "#FFF3B0",
+        pts: [{x:350,y:150},{x:450,y:200},{x:450,y:350},{x:350,y:420},{x:250,y:350},{x:250,y:200}],
+        details: () => {
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(320, 240, 5, 0, Math.PI*2); ctx.arc(380, 240, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle="#E07A5F"; // Pico
+            ctx.beginPath(); ctx.moveTo(340, 270); ctx.lineTo(360, 270); ctx.lineTo(350, 290); ctx.fill();
+        }
+    },
+    {
+    name: "🐧 Pingüino", fillColor: "#264653",
+    pts: [
+        {x:350, y:60,  num:1},  // Cabeza arriba
+        {x:420, y:100, num:2},  // Cabeza der
+        {x:460, y:180, num:3},  // Hombro der
+        {x:480, y:280, num:4},  // Ala der
+        {x:460, y:360, num:5},  // Cuerpo der abajo
+        {x:400, y:390, num:6},  // Pata der
+        {x:300, y:390, num:7},  // Pata izq
+        {x:240, y:360, num:8},  // Cuerpo izq abajo
+        {x:220, y:280, num:9},  // Ala izq
+        {x:240, y:180, num:10}, // Hombro izq
+        {x:280, y:100, num:11}  // Cabeza izq
+    ],
+    details: () => {
+        ctx.fillStyle="white"; // Panza (Más pequeña para que se vea el borde azul)
+        ctx.beginPath(); ctx.ellipse(350, 250, 70, 110, 0, 0, Math.PI*2); ctx.fill();
+        
+        ctx.fillStyle="#F4A261"; // Patas dibujadas arriba del borde
+        ctx.fillRect(285, 380, 45, 15); ctx.fillRect(370, 380, 45, 15);
+        
+        // Cara
+        ctx.fillStyle="white"; 
+        ctx.beginPath(); ctx.arc(325, 130, 12, 0, Math.PI*2); ctx.arc(375, 130, 12, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle="black";
+        ctx.beginPath(); ctx.arc(325, 130, 5, 0, Math.PI*2); ctx.arc(375, 130, 5, 0, Math.PI*2); ctx.fill();
+        
+        // Pico
+        ctx.fillStyle="#F4A261";
+        ctx.beginPath(); ctx.moveTo(340, 150); ctx.lineTo(360, 150); ctx.lineTo(350, 170); ctx.fill();
+    }
+},
+   {
+    name: "🦒 Jirafa", fillColor: "#FCD12A",
+    pts: [
+        {x:300, y:50, num:1}, {x:380, y:50, num:2}, {x:420, y:100, num:3},
+        {x:380, y:150, num:4}, {x:380, y:300, num:5}, {x:450, y:350, num:6},
+        {x:450, y:500, num:7}, {x:400, y:500, num:8}, {x:400, y:400, num:9},
+        {x:300, y:400, num:10}, {x:300, y:500, num:11}, {x:250, y:500, num:12},
+        {x:250, y:350, num:13}, {x:320, y:300, num:14}, {x:320, y:150, num:15},
+        {x:280, y:100, num:16}
+    ],
+    details: () => {
+        ctx.fillStyle="#A16A19";
+        // Manchas circulares
+        [ {x:350,y:200}, {x:340,y:250}, {x:360,y:350} ].forEach(m => {
+            ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill();
+        });
+        ctx.fillStyle="black";
+        ctx.beginPath(); ctx.arc(330, 90, 6, 0, Math.PI*2); 
+        ctx.arc(370, 90, 6, 0, Math.PI*2); ctx.fill(); // Ojos
+    }
+},
+  {
+        name: "🐱 Gatito Naranja", fillColor: "#FF9100", // Naranja vibrante
+        pts: [
+            // Cabeza (puntos 1-13 definen la forma redondeada y cachetes)
+            { x: 350, y: 100, num: 1 },  // Centro arriba cabeza
+            { x: 280, y: 110, num: 2 },  // Curva hacia oreja izq
+            { x: 230, y: 80,  num: 3 },  // Punta oreja izq
+            { x: 200, y: 160, num: 4 },  // Base oreja izq
+            { x: 160, y: 180, num: 5 },  // Cachete izq arriba
+            { x: 140, y: 240, num: 6 },  // Cachete izq extremo
+            { x: 160, y: 290, num: 7 },  // Cachete izq abajo / cuello
+            { x: 200, y: 310, num: 8 },  // Mentón izq
+            { x: 350, y: 320, num: 9 },  // Mentón centro
+            { x: 500, y: 310, num: 10 }, // Mentón der
+            { x: 540, y: 290, num: 11 }, // Cachete der abajo / cuello
+            { x: 560, y: 240, num: 12 }, // Cachete der extremo
+            { x: 540, y: 180, num: 13 }, // Cachete der arriba
+            { x: 500, y: 160, num: 14 }, // Base oreja der
+            { x: 470, y: 80,  num: 15 }, // Punta oreja der
+            { x: 420, y: 110, num: 16 }, // Curva desde oreja der
+            { x: 355, y: 100, num: 17 }  // Cierre perfecto
+        ],
+        details: () => {
+            // Ojos grandes (crucial para la ternura de la imagen 4)
+            ctx.fillStyle = "black";
+            ctx.beginPath(); ctx.arc(280, 220, 30, 0, Math.PI * 2); ctx.fill(); // Ojo izq
+            ctx.beginPath(); ctx.arc(420, 220, 30, 0, Math.PI * 2); ctx.fill(); // Ojo der
+            
+            // Brillo de los ojos (hace que se vea vivo)
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(295, 205, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(435, 205, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(270, 235, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(410, 235, 5, 0, Math.PI * 2); ctx.fill();
+
+            // Nariz rosa pequeña
+            ctx.fillStyle="#FFADAD"; ctx.beginPath(); ctx.moveTo(340, 260); ctx.lineTo(360, 260); ctx.lineTo(350, 270); ctx.fill();
+            
+            // Boca (curvas sutiles)
+            ctx.strokeStyle="black"; ctx.lineWidth=2; ctx.lineCap="round";
+            ctx.beginPath(); ctx.moveTo(350, 270); ctx.quadraticCurveTo(330, 290, 310, 280); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 270); ctx.quadraticCurveTo(370, 290, 390, 280); ctx.stroke();
+
+            // Interior de orejas (sutil rosa)
+            ctx.fillStyle="#FFD1D1"; ctx.beginPath(); ctx.moveTo(230, 95); ctx.lineTo(210, 150); ctx.lineTo(250, 130); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(470, 95); ctx.lineTo(490, 150); ctx.lineTo(450, 130); ctx.fill();
+        }
+    },
+    {
+        name: "🐰 Conejito", fillColor: "#FFFFFF", // Blanco (o #CAF0F8 si prefieres el azul pálido)
+        pts: [
+            // Forma de la cabeza (Imagen 5 es muy redondeada abajo y estrecha arriba)
+            { x: 350, y: 150, num: 1 },  // Centro cabeza
+            { x: 280, y: 160, num: 2 },  // Curva hacia oreja izq
+            { x: 200, y: 60,  num: 3 },  // Punta oreja izq
+            { x: 230, y: 200, num: 4 },  // Base oreja izq
+            { x: 180, y: 230, num: 5 },  // Cachete izq arriba
+            { x: 150, y: 290, num: 6 },  // Cachete izq extremo
+            { x: 180, y: 350, num: 7 },  // Mentón izq abajo
+            { x: 250, y: 380, num: 8 },  // Mentón izq centro
+            { x: 350, y: 390, num: 9 },  // Centro mentón
+            { x: 450, y: 380, num: 10 }, // Mentón der centro
+            { x: 520, y: 350, num: 11 }, // Mentón der abajo
+            { x: 550, y: 290, num: 12 }, // Cachete der extremo
+            { x: 520, y: 230, num: 13 }, // Cachete der arriba
+            { x: 470, y: 200, num: 14 }, // Base oreja der
+            { x: 500, y: 60,  num: 15 }, // Punta oreja der
+            { x: 420, y: 160, num: 16 }, // Curva desde oreja der
+            { x: 355, y: 150, num: 17 }  // Cierre perfecto
+        ],
+        details: () => {
+            // Interior orejas rosa grande (como Imagen 5)
+            ctx.fillStyle="#FFC8DD"; 
+            ctx.beginPath(); ctx.ellipse(225, 125, 25, 70, -Math.PI/8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(475, 125, 25, 70, Math.PI/8, 0, Math.PI*2); ctx.fill();
+            
+            // Ojos tiernos (Imagen 5 tiene ojos azules y pestañas, esto es una simplificación tierno)
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(280, 270, 15, 0, Math.PI*2); ctx.fill(); // Ojo izq
+            ctx.beginPath(); ctx.arc(420, 270, 15, 0, Math.PI*2); ctx.fill(); // Ojo der
+            
+            // Brillo de los ojos
+            ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(290, 260, 5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(430, 260, 5, 0, Math.PI*2); ctx.fill();
+
+            // Nariz rosa pequeña
+            ctx.fillStyle="#FFADAD"; ctx.beginPath(); ctx.arc(350, 310, 8, 0, Math.PI*2); ctx.fill();
+            
+            // Boca (curva tierno)
+            ctx.strokeStyle="black"; ctx.lineWidth=2; ctx.lineCap="round";
+            ctx.beginPath(); ctx.moveTo(350, 318); ctx.quadraticCurveTo(340, 335, 330, 325); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 318); ctx.quadraticCurveTo(360, 335, 370, 325); ctx.stroke();
+        }
+    },
+    
+   {
+    name: "🐘 Elefante Azul", fillColor: "#8ECAE6",
+    pts: [
+        { x: 350, y: 70,  num: 1 },  // Cabeza arriba
+        { x: 450, y: 90,  num: 2 },  // Oreja der inicio
+        { x: 520, y: 150, num: 3 },  // Oreja der punta
+        { x: 550, y: 250, num: 4 },  // Cuerpo der
+        { x: 500, y: 350, num: 5 },  // Pata trasera der (Subida)
+        { x: 400, y: 350, num: 6 },  // Pata trasera izq (Subida)
+        { x: 300, y: 350, num: 7 },  // Pata delantera der (Subida)
+        { x: 220, y: 350, num: 8 },  // Pata delantera izq (Subida)
+        { x: 120, y: 280, num: 9 },  // Trompa abajo
+        { x: 80,  y: 220, num: 10 }, // Trompa punta
+        { x: 120, y: 160, num: 11 }, // Trompa arriba
+        { x: 220, y: 180, num: 12 }, // Unión cabeza-trompa
+        { x: 250, y: 90,  num: 13 }  // Oreja izq
+    ],
+    details: () => {
+        // Oreja grande (el óvalo oscuro que ves en tu imagen)
+        ctx.fillStyle = "#457B9D";
+        ctx.beginPath();
+        ctx.ellipse(430, 200, 60, 80, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ojo
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.arc(300, 180, 7, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Brillo del ojo
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(302, 178, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+},
+   
+    {
+        name: "🐯 Tigre de Juguete", fillColor: "#FFB703", // Naranja brillante
+        pts: [
+            { x: 350, y: 120, num: 1 },  // Arriba centro cabeza
+            { x: 230, y: 100, num: 2 },  // Oreja izquierda punta
+            { x: 200, y: 220, num: 3 },  // Oreja izquierda base
+            { x: 100, y: 300, num: 4 },  // Panza izq
+            { x: 180, y: 380, num: 5 },  // Pata delantera izq
+            { x: 300, y: 360, num: 6 },  // Pata trasera izq
+            { x: 400, y: 360, num: 7 },  // Pata trasera der
+            { x: 500, y: 330, num: 8 },  // Pata delantera der / Cola punta
+            { x: 500, y: 220, num: 9 },  // Oreja derecha base
+            { x: 470, y: 100, num: 10 }  // Oreja derecha punta
+        ],
+        details: () => {
+            // Rayas negras
+            ctx.fillStyle = "black"; ctx.fillRect(320, 120, 10, 30); ctx.fillRect(370, 120, 10, 30);
+            // Nariz rosa
+            ctx.fillStyle="#FFADAD"; ctx.beginPath(); ctx.moveTo(340, 270); ctx.lineTo(360, 270); ctx.lineTo(350, 285); ctx.fill();
+        }
+    },{
+        name: "🐁 Ratoncito", fillColor: "#BDC3C7", // Gris plateado
+        pts: [
+            // Cabeza y Orejas Grandes (Crucial para la ternura de la Imagen 7)
+            { x: 350, y: 100, num: 1 },  // Centro cabeza arriba
+            { x: 280, y: 120, num: 2 },  // Curva hacia oreja izq
+            { x: 200, y: 50,  num: 3 },  // Punta oreja izq superior
+            { x: 140, y: 120, num: 4 },  // Extremo oreja izq
+            { x: 200, y: 200, num: 5 },  // Base oreja izq
+            { x: 180, y: 260, num: 6 },  // Cachete izq arriba
+            { x: 150, y: 320, num: 7 },  // Cachete izq extremo / Panza izq
+            { x: 200, y: 360, num: 8 },  // Pata izq
+            { x: 350, y: 380, num: 9 },  // Centro inferior
+            { x: 500, y: 360, num: 10 }, // Pata der
+            { x: 550, y: 320, num: 11 }, // Panza der / Cachete der extremo
+            { x: 520, y: 260, num: 12 }, // Cachete der arriba
+            { x: 500, y: 200, num: 13 }, // Base oreja der
+            { x: 560, y: 120, num: 14 }, // Extremo oreja der
+            { x: 500, y: 50,  num: 15 }, // Punta oreja der superior
+            { x: 420, y: 120, num: 16 }, // Curva desde oreja der
+            { x: 355, y: 100, num: 17 }  // Cierre perfecto
+        ],
+        details: () => {
+            // Interior orejas rosa grande y tierno
+            ctx.fillStyle="#FFD1D1"; // Rosa pálido
+            ctx.beginPath(); ctx.ellipse(220, 140, 45, 60, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(480, 140, 45, 60, Math.PI/6, 0, Math.PI*2); ctx.fill();
+
+            // Ojos grandes y azules (como en Imagen 7)
+            ctx.fillStyle = "#A2D2FF"; // Azul cielo
+            ctx.beginPath(); ctx.arc(280, 260, 25, 0, Math.PI * 2); ctx.fill(); // Ojo izq
+            ctx.beginPath(); ctx.arc(420, 260, 25, 0, Math.PI * 2); ctx.fill(); // Ojo der
+            
+            // Pupila negra y brillos
+            ctx.fillStyle = "black";
+            ctx.beginPath(); ctx.arc(280, 260, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(420, 260, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(290, 250, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(430, 250, 6, 0, Math.PI * 2); ctx.fill();
+
+            // Nariz rosa pequeña y tierno
+            ctx.fillStyle="#FFADAD"; ctx.beginPath(); ctx.arc(350, 310, 8, 0, Math.PI*2); ctx.fill();
+            
+            // Boca (curva tierno y pequeña)
+            ctx.strokeStyle="black"; ctx.lineWidth=2; ctx.lineCap="round";
+            ctx.beginPath(); ctx.moveTo(350, 320); ctx.quadraticCurveTo(345, 330, 335, 325); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 320); ctx.quadraticCurveTo(355, 330, 365, 325); ctx.stroke();
+        }
+    },
+    {
+        name: "🦌 Cervatillo", fillColor: "#CD853F", // Marrón siena
+        pts: [
+            // Silueta elegante y redondeada (basada en Imagen 8)
+            { x: 350, y: 100, num: 1 },  // Centro cabeza
+            { x: 280, y: 120, num: 2 },  // Curva hacia oreja izq
+            { x: 150, y: 40,  num: 3 },  // Punta oreja izq superior
+            { x: 100, y: 120, num: 4 },  // Extremo oreja izq
+            { x: 200, y: 220, num: 5 },  // Base oreja izq
+            { x: 180, y: 260, num: 6 },  // Cachete izq arriba
+            { x: 120, y: 300, num: 7 },  // Cachete izq extremo / Lomo izq
+            { x: 150, y: 380, num: 8 },  // Pata trasera izq
+            { x: 250, y: 410, num: 9 },  // Panza inferior izq
+            { x: 350, y: 420, num: 10 }, // Centro inferior
+            { x: 450, y: 410, num: 11 }, // Panza inferior der
+            { x: 550, y: 380, num: 12 }, // Pata trasera der
+            { x: 580, y: 300, num: 13 }, // Lomo der / Cachete der extremo
+            { x: 520, y: 260, num: 14 }, // Cachete der arriba
+            { x: 500, y: 220, num: 15 }, // Base oreja der
+            { x: 600, y: 120, num: 16 }, // Extremo oreja der
+            { x: 550, y: 40,  num: 17 }, // Punta oreja der superior
+            { x: 420, y: 120, num: 18 }, // Curva desde oreja der
+            { x: 355, y: 100, num: 19 }  // Cierre perfecto
+        ],
+        details: () => {
+            // Interior orejas rosa grande y tierno
+            ctx.fillStyle="#FFD1D1";
+            ctx.beginPath(); ctx.ellipse(190, 140, 35, 60, -Math.PI/7, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(510, 140, 35, 60, Math.PI/7, 0, Math.PI*2); ctx.fill();
+            
+            // Puntos blancos en el lomo (detalles de Imagen 8)
+            ctx.fillStyle="white"; 
+            [ {x:480, y:280}, {x:510, y:310}, {x:540, y:290}, {x:500, y:340} ].forEach(p => {
+                ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Ojos grandes y tiernos (azules como Imagen 8)
+            ctx.fillStyle = "#8ECAE6"; // Azul cielo suave
+            ctx.beginPath(); ctx.arc(280, 260, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(420, 260, 20, 0, Math.PI * 2); ctx.fill();
+            
+            // Pupila negra y brillos
+            ctx.fillStyle = "black";
+            ctx.beginPath(); ctx.arc(280, 260, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(420, 260, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(288, 252, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(428, 252, 4, 0, Math.PI * 2); ctx.fill();
+
+            // Nariz rosa pequeña
+            ctx.fillStyle="#FFADAD"; ctx.beginPath(); ctx.arc(350, 310, 6, 0, Math.PI*2); ctx.fill();
+            
+            // Boca (curva tierno y pequeña)
+            ctx.strokeStyle="black"; ctx.lineWidth=2; ctx.lineCap="round";
+            ctx.beginPath(); ctx.moveTo(350, 320); ctx.quadraticCurveTo(345, 330, 335, 325); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 320); ctx.quadraticCurveTo(355, 330, 365, 325); ctx.stroke();
+        }
+    },{
+        name: "🌸 Flor", fillColor: "#FF85A1",
+        // Aumentados a 12 puntos para pétalos curvos y suaves.
+        pts: [
+            {x:350, y:80,  num:1},  // Arriba centro
+            {x:410, y:100, num:2},
+            {x:460, y:160, num:3},  // Derecha arriba
+            {x:480, y:230, num:4},  // Derecha centro
+            {x:460, y:300, num:5},  // Derecha abajo
+            {x:410, y:360, num:6},
+            {x:350, y:380, num:7},  // Abajo centro
+            {x:290, y:360, num:8},
+            {x:240, y:300, num:9},  // Izquierda abajo
+            {x:220, y:230, num:10}, // Izquierda centro
+            {x:240, y:160, num:11}, // Izquierda arriba
+            {x:290, y:100, num:12}
+        ],
+        details: () => {
+            ctx.fillStyle="#FFD166"; // Centro (Naranja como Imagen 9)
+            ctx.beginPath(); ctx.arc(350, 230, 50, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle="#06D6A0"; ctx.lineWidth=12; // Tallo
+            ctx.beginPath(); ctx.moveTo(350, 380); ctx.lineTo(350, 440); ctx.stroke();
+            
+            // Hojas del tallo como Imagen 9 (Detalles)
+            ctx.fillStyle="#A3D14B"; // Verde claro
+            ctx.beginPath(); ctx.ellipse(300, 390, 40, 20, Math.PI/6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(400, 390, 40, 20, -Math.PI/6, 0, Math.PI*2); ctx.fill();
+        }
+    },
+   {
+        name: "🦕 Cuello Largo (Gordito)", fillColor: "#87CEEB",
+        // Cuerpo muy ancho y cuello grueso para separar los puntos
+        pts: [
+            {x:100, y:380, num:1},  // Cola inicio
+            {x:50,  y:320, num:2},  // Punta cola redondeada
+            {x:120, y:280, num:3},  // Lomo trasero
+            {x:250, y:250, num:4},  // Lomo central (punto más alto del cuerpo)
+            {x:380, y:230, num:5},  // Base del cuello (ancha)
+            {x:420, y:150, num:6},  // Cuello medio
+            {x:430, y:80,  num:7},  // Cabeza atrás
+            {x:480, y:70,  num:8},  // Cabeza arriba
+            {x:520, y:100, num:9},  // Hocico punta
+            {x:500, y:140, num:10}, // Mandíbula
+            {x:450, y:160, num:11}, // Garganta
+            {x:410, y:280, num:12}, // Pecho
+            {x:430, y:380, num:13}, // Pata delantera (frente)
+            {x:380, y:420, num:14}, // Pata delantera (base)
+            {x:330, y:380, num:15}, // Panza adelante
+            {x:250, y:400, num:16}, // Panza centro (caída)
+            {x:170, y:380, num:17}, // Pata trasera (frente)
+            {x:130, y:420, num:18}, // Pata trasera (base)
+            {x:100, y:380, num:19}  // Cierre
+        ],
+        details: () => {
+            ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(470, 95, 8, 0, Math.PI*2); ctx.fill(); // Ojo blanco
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(475, 95, 4, 0, Math.PI*2); ctx.fill(); // Pupila
+            // Manchas en el lomo
+            ctx.fillStyle="rgba(255,255,255,0.3)";
+            ctx.beginPath(); ctx.arc(200, 280, 15, 0, Math.PI*2); ctx.arc(260, 270, 20, 0, Math.PI*2); ctx.fill();
+        }
+    },
+    {
+        name: "🟣 Estegosaurio Redondito", fillColor: "#9370DB",
+        // Forma de "frijol" gigante para que las placas tengan espacio arriba
+        pts: [
+            {x:80,  y:330, num:1},  // Cola
+            {x:150, y:260, num:2},  // Lomo subiendo
+            {x:250, y:220, num:3},  // Lomo alto 1
+            {x:350, y:220, num:4},  // Lomo alto 2
+            {x:450, y:260, num:5},  // Lomo bajando
+            {x:520, y:300, num:6},  // Cabeza arriba
+            {x:560, y:330, num:7},  // Hocico
+            {x:530, y:360, num:8},  // Mandíbula
+            {x:460, y:350, num:9},  // Cuello abajo
+            {x:440, y:410, num:10}, // Pata del. (atrás)
+            {x:380, y:410, num:11}, // Pata del. (frente)
+            {x:300, y:380, num:12}, // Panza (muy gordita)
+            {x:220, y:410, num:13}, // Pata tras. (atrás)
+            {x:160, y:410, num:14}, // Pata tras. (frente)
+            {x:120, y:360, num:15}  // Base cola
+        ],
+        details: () => {
+            ctx.fillStyle="#7B68EE";
+            // Placas romboides grandes (estéticas, no puntos)
+            for(let i=0; i<5; i++){
+                ctx.beginPath();
+                ctx.moveTo(150 + i*70, 220);
+                ctx.lineTo(170 + i*70, 170);
+                ctx.lineTo(190 + i*70, 220);
+                ctx.fill();
+            }
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(520, 325, 5, 0, Math.PI*2); ctx.fill();
+        }
+    },
+    {
+        name: "🟠 Triceratops Mazizo", fillColor: "#FF9F1C",
+        pts: [
+            {x:100, y:350, num:1},  // Cola
+            {x:200, y:280, num:2},  // Espalda inicio
+            {x:350, y:280, num:3},  // Espalda fin
+            {x:400, y:220, num:4},  // Volante (gola) arriba
+            {x:480, y:180, num:5},  // Volante cima
+            {x:550, y:220, num:6},  // Volante lado
+            {x:580, y:320, num:7},  // Hocico punta
+            {x:530, y:380, num:8},  // Barbilla
+            {x:450, y:380, num:9},  // Pecho
+            {x:430, y:430, num:10}, // Pata delantera
+            {x:300, y:400, num:11}, // Panza grande
+            {x:200, y:430, num:12}, // Pata trasera
+            {x:150, y:380, num:13}  // Cierre cola
+        ],
+        details: () => {
+            // Cuernos (el rasgo principal)
+            ctx.fillStyle="#FFF5E1";
+            ctx.beginPath(); ctx.moveTo(500, 240); ctx.lineTo(560, 200); ctx.lineTo(510, 260); ctx.fill(); // Cuerno 1
+            ctx.beginPath(); ctx.moveTo(460, 260); ctx.lineTo(520, 220); ctx.lineTo(470, 280); ctx.fill(); // Cuerno 2
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(510, 310, 6, 0, Math.PI*2); ctx.fill(); // Ojo
+        }
+    }
+    ];
+
+    let curLvl = 0, connected = [], isDone = false, nextTarget = 1, dragging = false;
+    const msgBox = document.getElementById('msg');
+
+    function initLvl(idx) {
+        curLvl = idx; connected = [0]; isDone = false; nextTarget = 2;
+        document.getElementById('lvlName').innerText = `Nivel ${idx+1}: ${LEVELS[idx].name}`;
+        msgBox.classList.remove('victory-flash');
+        msgBox.innerText = idx === 0 ? "¡Toca el 1 y arrastra!" : "¡A unir los puntos!";
+        updateUI(); draw();
+    }
+
+    function updateUI() {
+        const total = LEVELS[curLvl].pts.length;
+        document.getElementById('progText').innerText = `${connected.length} / ${total}`;
+        document.getElementById('targetDisplay').innerText = isDone ? "✔" : nextTarget;
+    }
+
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        const lvl = LEVELS[curLvl], pts = lvl.pts;
+
+        if(isDone) {
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+            pts.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath();
+            ctx.fillStyle = lvl.fillColor; ctx.fill();
+            if(lvl.details) lvl.details();
+        }
+
+        ctx.beginPath(); ctx.lineWidth = 5; ctx.strokeStyle = "#fb8500";
+        ctx.moveTo(pts[connected[0]].x, pts[connected[0]].y);
+        connected.forEach(i => ctx.lineTo(pts[i].x, pts[i].y)); ctx.stroke();
+
+        pts.forEach((p, i) => {
+            const isConn = connected.includes(i);
+            const isNext = (i + 1 === nextTarget);
+            ctx.beginPath(); ctx.arc(p.x, p.y, 18, 0, Math.PI*2);
+            ctx.fillStyle = isConn ? "#2a9d8f" : (isNext ? "#e9c46a" : "#ccc");
+            ctx.fill(); ctx.strokeStyle="#264653"; ctx.lineWidth=2; ctx.stroke();
+            ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign="center";
+            ctx.fillText(i+1, p.x, p.y+5);
+        });
+    }
+
+    function getMouse(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: (clientX - rect.left) * (canvas.width / rect.width),
+            y: (clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
+    function onMove(e) {
+        if(!dragging || isDone) return;
+        const m = getMouse(e), lvl = LEVELS[curLvl];
+        lvl.pts.forEach((p, i) => {
+            if(Math.hypot(p.x - m.x, p.y - m.y) < 25 && (i + 1 === nextTarget)) {
+                connected.push(i); nextTarget++;
+                if(connected.length === lvl.pts.length) {
+                    isDone = true;
+                    // Lógica de mensaje final
+                    if(curLvl === LEVELS.length - 1) {
+                        msgBox.innerText = "¡FELICIDADES! COMPLETASTE TODO 🏆✨";
+                        msgBox.classList.add('victory-flash');
+                    } else {
+                        msgBox.innerText = "¡GENIAL! ¡Pasa al siguiente! ✨";
+                    }
+                }
+                updateUI(); draw();
+            }
+        });
+    }
+
+    canvas.addEventListener('mousedown', () => dragging = true);
+    canvas.addEventListener('touchstart', (e) => { dragging = true; e.preventDefault(); }, {passive:false});
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, {passive:false});
+    window.addEventListener('mouseup', () => dragging = false);
+    window.addEventListener('touchend', () => dragging = false);
+
+    document.getElementById('btnNext').onclick = () => { if(curLvl < LEVELS.length-1) initLvl(curLvl+1); };
+    document.getElementById('btnPrev').onclick = () => { if(curLvl > 0) initLvl(curLvl-1); };
+    document.getElementById('btnReset').onclick = () => initLvl(curLvl);
+
+    initLvl(0);
+})();
+</script>
+</body>
+</html>
